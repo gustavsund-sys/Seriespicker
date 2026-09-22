@@ -4,31 +4,47 @@ En svensk, mobile-first React-app som rekommenderar **en TV-serie** utifrån str
 
 ## Starta
 
-Node.js 22.12+ och pnpm 11 rekommenderas. Låsfilen ingår.
+Node.js 22.12+ och pnpm 11 rekommenderas. Låsfilen ingår. Utvecklingsservern kör både appen och TMDB-proxyn på samma adress.
 
 ```sh
 pnpm install
 pnpm dev
 ```
 
-Öppna adressen Vite visar. För att testa på en mobil i samma nätverk: `pnpm dev --host 0.0.0.0` och öppna datorns lokala IP-adress med port 5173. För publik åtkomst behöver `dist/` publiceras på en statisk webbhost.
+Öppna adressen som servern visar. För att testa på en mobil i samma nätverk: `HOST=0.0.0.0 pnpm dev` och öppna datorns lokala IP-adress med port 5173.
 
 ```sh
 pnpm build
 pnpm lint
 pnpm test
-pnpm preview
+pnpm start
 ```
+
+`pnpm start` serverar den byggda appen och proxyn på port 3000 som standard. `PORT` och `HOST` kan anges i miljön. För publik drift är repot konfigurerat för Firebase Hosting och en Cloud Function.
+
+## Publicera på Firebase
+
+Firebase-projektet är `seriespicker-f41a7`. Hosting serverar `dist/` och skriver om `/api/tmdb/**` till funktionen `tmdbProxy` i `europe-west1`. Funktionen läser nyckeln från Firebase Secret Manager. Projektet behöver Blaze-planen för att Cloud Functions ska kunna publiceras.
+
+```sh
+pnpm dlx firebase-tools login
+pnpm dlx firebase-tools functions:secrets:set TMDB_API_KEY
+pnpm install
+pnpm build
+pnpm dlx firebase-tools deploy --only functions,hosting
+```
+
+Ange TMDB:s **API Key** när kommandot för hemligheten frågar efter värdet. Den publika adressen blir `https://seriespicker-f41a7.web.app/`. Publicera både `functions` och `hosting` när proxyn ändras. Firebase SDK-konfigurationen för webbläsaren behövs först när appen börjar använda exempelvis Firebase Auth eller Firestore.
 
 Vanliga npm-kommandon fungerar också (`npm install`, `npm run dev`), men pnpm-låsfilen är den verifierade beroendeuppsättningen.
 
 ## TMDB och demoläge
 
-Kopiera `.env.example` till `.env.local`, ange `VITE_TMDB_API_KEY` från [TMDB](https://www.themoviedb.org/settings/api) och starta om Vite. Ingen riktig nyckel ingår. Vite-variabler byggs in i webbläsarkoden; använd en serverproxy om nyckeln ska hållas hemlig för besökare.
+Kopiera `.env.example` till `.env.local`, ange `TMDB_API_KEY` från [TMDB](https://www.themoviedb.org/settings/api) och starta om servern. Ingen riktig nyckel ingår i Git. Servern tillåter bara appens tre TMDB-anrop och lägger till nyckeln där. Nyckeln byggs inte in i webbläsarkoden.
 
 Utan nyckel eller vid API-fel visas ett tydligt demoläge. Demokatalogens betyg och leverantörer är exempel, inte verifierad aktuell svensk tillgänglighet. Den innehåller även uttryckligen fiktiva serier för att testa alla åtta tjänster. Demokorten använder typografiska affischer. Live-läget använder TMDB:s posterbilder med reservvy om bilden inte laddas.
 
-TMDB-servicen hämtar TV-serier, identifierar svenska leverantörer via leverantörskatalogen och använder `watch_region=SE`. Kandidater kontrolleras mot varje series svenska watch-provider-data. Abonnemang, gratis och reklamfinansierad streaming stöds; hyr/köp ger ingen match. Två kandidaturval (popularitet och betyg) kombineras. Enstaka misslyckade tillgänglighetskontroller utesluts. Det är ett begränsat urval, inte en genomsökning av hela katalogen.
+TMDB-servicen hämtar TV-serier via serverns `/api/tmdb`-proxy, identifierar svenska leverantörer via leverantörskatalogen och använder `watch_region=SE`. Kandidater kontrolleras mot varje series svenska watch-provider-data. Abonnemang, gratis och reklamfinansierad streaming stöds; hyr/köp ger ingen match. Två kandidaturval (popularitet och betyg) kombineras. Enstaka misslyckade tillgänglighetskontroller utesluts. Det är ett begränsat urval, inte en genomsökning av hela katalogen.
 
 Streamingknappen i live-läget öppnar TMDB:s svenska watch-länk, där länkar vidare till tjänsterna finns. I demo sparas valet i historiken. Att välja en serie är separat från att markera den som sedd.
 
@@ -46,6 +62,8 @@ src/
   services/tmdb.ts             TMDB och explicit demofallback
   services/userData.ts         UserDataStore och localStorage
   types/                      delade typer
+server/index.mjs               lokal webbserver
+functions/                     delad TMDB-proxy och Firebase Cloud Function
 public/                       ikon och webbmanifest
 ```
 

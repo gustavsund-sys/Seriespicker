@@ -5,3 +5,8 @@ dist
 !.env.example
 *.log
 *.tsbuildinfo
+.firebase/
+.pnpm-store/
+functions/node_modules/
+functions/.env*
+functions/.secret.local

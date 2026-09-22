@@ -1,0 +1,8 @@
+{
+  "name": "seriespicker-functions",
+  "private": true,
+  "type": "module",
+  "main": "index.mjs",
+  "engines": { "node": "22" },
+  "dependencies": { "firebase-functions": "^7.0.0" }
+}

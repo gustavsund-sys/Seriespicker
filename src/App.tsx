@@ -4,7 +4,7 @@ import {Progress} from './components/Progress'
 import {genres,moods,needs,providers} from './data/options'
 import {createMoodProfile} from './lib/moodEngine'
 import {scoreCandidates,type ScoredSeries} from './lib/recommendationEngine'
-import {fetchSeries,isDemoMode,posterUrl} from './services/tmdb'
+import {fetchSeries,posterUrl} from './services/tmdb'
 import {userData} from './services/userData'
 import type {Feedback,MoodId,NeedId,UserState} from './types'
 
@@ -18,8 +18,8 @@ export default function App(){
  const [mood,setMood]=useState<MoodId|undefined>(state.lastMood)
  const [queue,setQueue]=useState<ScoredSeries[]>([])
  const [index,setIndex]=useState(0)
- const [demo,setDemo]=useState(isDemoMode)
- const [notice,setNotice]=useState(isDemoMode?'Demoläge · exempeldata. Tillgänglighet och betyg är inte verifierade.':'')
+ const [demo,setDemo]=useState(false)
+ const [notice,setNotice]=useState('')
  const [toast,setToast]=useState('')
  const [posterFailed,setPosterFailed]=useState(false)
  useEffect(()=>{userData.save(state)},[state])

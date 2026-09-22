@@ -2,16 +2,14 @@ import { mockSeries } from '../data/mockSeries'
 import { tmdbGenre } from '../lib/recommendationEngine'
 import { normalizeExternalProfile } from '../lib/moodEngine'
 import type { MoodProfile, Series } from '../types'
-const API='https://api.themoviedb.org/3'
-const key=import.meta.env.VITE_TMDB_API_KEY?.trim()
-export const isDemoMode=!key||key==='din_tmdb_api_nyckel'
+const API='/api/tmdb'
 export interface Catalog {series:Series[];demo:boolean;notice:string}
 interface Provider {provider_id:number;provider_name:string}
 interface Tv {id:number;name:string;first_air_date?:string;vote_average:number;popularity:number;genre_ids:number[];overview:string;poster_path?:string}
 const aliases:Record<string,string[]>={Netflix:['netflix'],Max:['max','hbo max'], 'Disney+':['disney plus','disney+'],'Prime Video':['amazon prime video','prime video'],'Apple TV+':['apple tv plus','apple tv+','apple tv'],'SkyShowtime':['skyshowtime'],'SVT Play':['svt','svt play'],'TV4 Play':['tv4 play']}
 function providerName(name:string){return Object.entries(aliases).find(([,names])=>names.includes(name.toLowerCase()))?.[0]}
 async function get<T>(path:string,params:Record<string,string>={}):Promise<T>{
- const query=new URLSearchParams({...params,api_key:key||'',language:'sv-SE'})
+ const query=new URLSearchParams({...params,language:'sv-SE'})
  const res=await fetch(`${API}${path}?${query}`,{signal:AbortSignal.timeout(12000)})
  if(!res.ok)throw new Error('TMDB svarade inte')
  return res.json()
@@ -33,7 +31,6 @@ export function estimateProfile(id:number,genres:string[]):MoodProfile {
 }
 export async function fetchSeries(selected:string[]):Promise<Catalog>{
  const demo=(notice:string):Catalog=>({series:mockSeries,demo:true,notice})
- if(isDemoMode)return demo('Demoläge · exempeldata. Tillgänglighet och betyg är inte verifierade.')
  try {
   const available=await get<{results:Provider[]}>('/watch/providers/tv',{watch_region:'SE'})
   const ids=available.results.filter(p=>selected.includes(providerName(p.provider_name)||'')).map(p=>p.provider_id)
