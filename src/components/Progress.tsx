@@ -1,0 +1,1 @@
+export function Progress({step}:{step:number}){return <div className="progress" role="progressbar" aria-label="Din kvällsprofil" aria-valuenow={step} aria-valuemin={1} aria-valuemax={4}>{[1,2,3,4].map(x=><i key={x} className={x<=step?'active':''}/>)}</div>}
