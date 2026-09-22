@@ -34,7 +34,7 @@ pnpm build
 pnpm dlx firebase-tools deploy --only functions,hosting
 ```
 
-Ange TMDB:s **API Key** när kommandot för hemligheten frågar efter värdet. Den publika adressen är `https://seriespicker-f41a7.web.app/`. GitHub Pages på `/Seriespicker/` vidarekopplar dit via `docs/index.html`. Publicera både `functions` och `hosting` när proxyn ändras. Firebase SDK-konfigurationen för webbläsaren behövs först när appen börjar använda exempelvis Firebase Auth eller Firestore.
+Ange TMDB:s **API Key** när kommandot för hemligheten frågar efter värdet. Den publika adressen är `https://seriespicker-f41a7.web.app/`. Publicera både `functions` och `hosting` när proxyn ändras. Firebase SDK-konfigurationen för webbläsaren behövs först när appen börjar använda exempelvis Firebase Auth eller Firestore.
 
 Vanliga npm-kommandon fungerar också (`npm install`, `npm run dev`), men pnpm-låsfilen är den verifierade beroendeuppsättningen.
 
