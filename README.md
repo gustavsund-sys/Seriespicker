@@ -44,7 +44,9 @@ Kopiera `.env.example` till `.env.local`, ange `TMDB_API_KEY` från [TMDB](https
 
 Utan nyckel eller vid API-fel visas ett tydligt demoläge. Demokatalogens betyg och leverantörer är exempel, inte verifierad aktuell svensk tillgänglighet. Den innehåller även uttryckligen fiktiva serier för att testa alla åtta tjänster. Demokorten använder typografiska affischer. Live-läget använder TMDB:s posterbilder med reservvy om bilden inte laddas.
 
-TMDB-servicen hämtar TV-serier via serverns `/api/tmdb`-proxy, identifierar svenska leverantörer via leverantörskatalogen och använder `watch_region=SE`. Kandidater kontrolleras mot varje series svenska watch-provider-data. Abonnemang, gratis och reklamfinansierad streaming stöds; hyr/köp ger ingen match. Två kandidaturval (popularitet och betyg) kombineras. Enstaka misslyckade tillgänglighetskontroller utesluts. Det är ett begränsat urval, inte en genomsökning av hela katalogen.
+TMDB-servicen hämtar TV-serier via serverns `/api/tmdb`-proxy, identifierar svenska leverantörer via leverantörskatalogen och använder `watch_region=SE`. Kandidater kontrolleras mot varje series svenska watch-provider-data. Abonnemang, gratis och reklamfinansierad streaming stöds; hyr/köp ger ingen match. Popularitet, betyg och ett urval riktat mot valda genrer kombineras, upp till 60 kandidater. Enstaka misslyckade tillgänglighetskontroller utesluts. Det är ett begränsat urval, inte en genomsökning av hela katalogen. Katalogen återanvänds i webbläsaren i 20 minuter; servern håller kortvarig cache per instans för TMDB-svar.
+
+TMDB:s TV-genrer skiljer inte alltid på sci-fi/fantasy och saknar egna genrer för thriller, skräck och feelgood. Appen härleder därför de valen från kombinationer av genre, uppskattad stämningsprofil och beskrivning. Träffarna är en uppskattning, inte officiella TMDB-genrer.
 
 Streamingknappen i live-läget öppnar TMDB:s svenska watch-länk, där länkar vidare till tjänsterna finns. I demo sparas valet i historiken. Att välja en serie är separat från att markera den som sedd.
 
@@ -75,7 +77,7 @@ Kurerade serier har egna profiler. Övriga live-serier använder enkla genrebase
 
 ## Rekommendationer och lagring
 
-Vald streamingtjänst är obligatorisk. Poäng: genre upp till 30, profilavstånd upp till 30, betyg upp till 10, popularitet upp till 5 samt liten daglig variation. Tidigare rekommendationer får avdrag, sedda −70 och ogillade −100. Positiv feedback sparas för framtida personalisering. En visad serie byts bara när användaren ber om ett nytt förslag; feedback omrankar inte det aktuella kortet. ”Ge mig en annan” går framåt i kön och återupprepar ingen serie samma kväll.
+Vald streamingtjänst är obligatorisk. Poäng: genre upp till 30, profilavstånd upp till 30, betyg upp till 10, popularitet upp till 5 samt liten daglig variation. Redan sedda serier utesluts; ogillade får −100. Gilla-markeringar påverkar senare rekommendationer via liknande profiler och genrer. Ett negativt skäl (för mörkt, för långsamt eller fel genre) prioriterar ned liknande förslag. En visad serie byts bara när användaren ber om ett nytt förslag eller markerar den som sedd; det senare kan ångras. ”Ge mig en annan” går framåt i kön och återupprepar ingen serie samma kväll.
 
 `UserDataStore` sparar tjänster, smak, senaste humör/behov, de senaste 500 rekommendationerna, betyg och separat sedd-status. Ogiltig lagrad profil valideras. Om lagring blockeras används minne för sessionen. Historik finns under inställningar.
 

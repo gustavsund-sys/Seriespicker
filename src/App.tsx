@@ -4,9 +4,9 @@ import {Progress} from './components/Progress'
 import {genres,moods,needs,providers} from './data/options'
 import {createMoodProfile} from './lib/moodEngine'
 import {scoreCandidates,type ScoredSeries} from './lib/recommendationEngine'
-import {fetchSeries,posterUrl} from './services/tmdb'
+import {fetchSeries,fetchSeriesDetails,posterUrl} from './services/tmdb'
 import {userData} from './services/userData'
-import type {Feedback,MoodId,NeedId,UserState} from './types'
+import type {FeedbackReason,MoodId,NeedId,UserState} from './types'
 
 type Step='providers'|'genres'|'mood'|'need'|'loading'|'result'
 const toggle=(values:string[],value:string)=>values.includes(value)?values.filter(x=>x!==value):[...values,value]
@@ -22,46 +22,72 @@ export default function App(){
  const [notice,setNotice]=useState('')
  const [toast,setToast]=useState('')
  const [posterFailed,setPosterFailed]=useState(false)
+ const [details,setDetails]=useState<{episodeMinutes?:number;seasons?:number}>({})
+ const [reasonOpen,setReasonOpen]=useState(false)
+ const [undoWatched,setUndoWatched]=useState<{id:number;index:number}|null>(null)
  useEffect(()=>{userData.save(state)},[state])
  useEffect(()=>{window.scrollTo(0,0)},[step,index])
  useEffect(()=>{if(!toast)return;const timer=setTimeout(()=>setToast(''),2600);return ()=>clearTimeout(timer)},[toast])
+ useEffect(()=>{if(!undoWatched)return;const timer=setTimeout(()=>setUndoWatched(null),8000);return ()=>clearTimeout(timer)},[undoWatched])
+ useEffect(()=>{
+  const pick=queue[index]
+  if(step!=='result'||demo||!pick){setDetails({});return}
+  let active=true
+  setDetails({})
+  void fetchSeriesDetails(pick.series.id).then(value=>{if(active)setDetails(value)})
+  return ()=>{active=false}
+ },[step,queue,index,demo])
  const update=(patch:Partial<UserState>)=>setState(s=>({...s,...patch}))
  async function run(need:NeedId){
   if(!mood)return
   const next={...state,lastMood:mood,lastNeed:need}
   userData.save(next);setState(next);setStep('loading');setToast('')
-  const catalog=await fetchSeries(state.providers)
+  const catalog=await fetchSeries(state.providers,state.genres)
   const ranked=scoreCandidates(catalog.series,createMoodProfile(mood,need),state.genres,state.providers,state.history)
-  setDemo(catalog.demo);setNotice(catalog.notice);setQueue(ranked);setIndex(0);setPosterFailed(false)
+  setDemo(catalog.demo);setNotice(catalog.notice);setQueue(ranked);setIndex(0);setPosterFailed(false);setUndoWatched(null);setReasonOpen(false)
   if(ranked[0])setState(userData.record(ranked[0].series))
   setStep('result')
  }
- function feedback(value:Feedback){
+ function feedback(value:'liked'|'disliked',reason?:FeedbackReason){
   const current=queue[index]?.series;if(!current)return
-  setState(userData.record(current,value))
-  setToast(value==='liked'?'Sparat som bra tips':value==='watched'?'Markerad som sedd':'Sparat – serien prioriteras ned framöver')
+  setState(userData.record(current,value,reason));setReasonOpen(false);setUndoWatched(null)
+  setToast(value==='liked'?'Sparat som bra tips':'Sparat – liknande tips prioriteras ned')
  }
  function another(){
-  const next=index+1;setIndex(next);setPosterFailed(false);setToast('')
+  const next=index+1;setIndex(next);setPosterFailed(false);setToast('');setReasonOpen(false);setUndoWatched(null)
   if(queue[next])setState(userData.record(queue[next].series))
+ }
+ function markWatched(){
+  const current=queue[index]?.series;if(!current)return
+  setState(userData.record(current,'watched'));setUndoWatched({id:current.id,index});setReasonOpen(false);setPosterFailed(false)
+  const next=index+1;setIndex(next)
+  if(queue[next])setState(userData.record(queue[next].series))
+ }
+ function undoWatch(){
+  if(!undoWatched)return
+  setState(userData.unwatch(undoWatched.id));setIndex(undoWatched.index);setPosterFailed(false);setUndoWatched(null)
  }
  const header=<header><Logo/><button className="icon-btn" onClick={()=>setStep('providers')} aria-label="Inställningar">⚙</button></header>
  const mode=notice&&<p className="mode" role="status">{notice}</p>
  if(step==='loading')return <main className="loading-screen" aria-busy="true"><Logo/><div className="orb"><span>✦</span></div><h1>Vi hittar kvällens serie</h1><p role="status">Matchar humör, smak och dina tjänster…</p></main>
  if(step==='result'){
   const pick=queue[index]
-  if(!pick)return <main className="flow">{header}{mode}<section className="question empty-result"><h1>{queue.length?'Kvällens förslag är slut':'Ingen match den här gången'}</h1><p>Ändra dina tjänster eller prova en ny kvällsprofil.</p><button className="primary" onClick={()=>setStep('providers')}>Ändra mina val</button><button className="secondary" onClick={()=>setStep('mood')}>Beskriv en ny kväll</button></section><Credits/></main>
+  if(!pick)return <main className="flow">{header}{mode}<section className="question empty-result"><h1>{queue.length?'Kvällens förslag är slut':'Ingen match den här gången'}</h1><p>Ändra dina tjänster eller prova en ny kvällsprofil.</p>{undoWatched&&<button className="secondary" onClick={undoWatch}>Ångra ”Redan sett”</button>}<button className="primary" onClick={()=>setStep('providers')}>Ändra mina val</button><button className="secondary" onClick={()=>setStep('mood')}>Beskriv en ny kväll</button></section><Credits/></main>
   const {series:s,reason}=pick
   const poster=posterFailed?undefined:posterUrl(s.posterPath)
   const past=state.history.find(h=>h.seriesId===s.id)
   return <main className="result-screen"><div className="result-backdrop"/>{header}{mode}<section className="result-content"><p className="result-kicker">IKVÄLL TYCKER VI ATT DU SKA SE</p>
-   <div className="poster">{poster?<img src={poster} alt={`Affisch för ${s.title}`} onError={()=>setPosterFailed(true)}/>:<div className="poster-fallback"><span>{demo?'DEMO · SERIEFÖRSLAG':'KVÄLLENS SERIEFÖRSLAG'}</span><strong>{s.title}</strong></div>}<span className="match">Utvalt för din kväll</span></div>
    <div className="title-row"><div><h1>{s.title}</h1><p>{s.year} · <b>★ {s.rating.toFixed(1)}</b>{demo?' (demo)':' TMDB'} · {s.genres.slice(0,3).join(' · ')}</p></div><span className="provider-pill">{s.providers.find(p=>state.providers.includes(p))}</span></div>
-   <p className="overview">{s.overview}</p><div className="why"><span>✦</span><div><b>Varför den passar ikväll</b><p>{reason}</p></div></div>
-   {s.watchUrl&&!demo?<a className="primary play" href={s.watchUrl} target="_blank" rel="noreferrer">▶ DET KÖR VI <small>Visa streamingalternativ</small></a>:<button className="primary play" onClick={()=>setToast('Kvällens val är sparat i din historik')}>▶ DET KÖR VI</button>}
+   {(details.episodeMinutes||details.seasons)&&<p className="series-facts">{[details.episodeMinutes&&`Cirka ${details.episodeMinutes} min/avsnitt`,details.seasons&&`${details.seasons} säsonger`].filter(Boolean).join(' · ')}</p>}
+   <div className="why"><span>✦</span><div><b>Varför den passar ikväll</b><p>{reason}</p></div></div>
+   {s.watchUrl&&!demo?<a className="primary play" href={s.watchUrl} target="_blank" rel="noreferrer">▶ VISA STREAMINGALTERNATIV</a>:<button className="primary play" onClick={()=>setToast('Kvällens val är sparat i din historik')}>▶ DET KÖR VI</button>}
+   <div className="poster">{poster?<img src={poster} alt={`Affisch för ${s.title}`} onError={()=>setPosterFailed(true)}/>:<div className="poster-fallback"><span>{demo?'DEMO · SERIEFÖRSLAG':'KVÄLLENS SERIEFÖRSLAG'}</span><strong>{s.title}</strong></div>}</div>
+   <p className="overview">{s.overview}</p>
    <button className="secondary" onClick={another}>🎲 GE MIG EN ANNAN</button>
-   <div className="feedback"><span>Var tipset rätt?</span><button aria-pressed={past?.feedback==='liked'} onClick={()=>feedback('liked')}>👍 Bra tips</button><button aria-pressed={past?.feedback==='disliked'} onClick={()=>feedback('disliked')}>👎 Inte för mig</button></div>
-   <button className="start-over" onClick={()=>feedback('watched')}>{past?.watched?'✓ Markerad som sedd':'Redan sett den'}</button>
+   <div className="feedback"><span>Var tipset rätt?</span><button aria-pressed={past?.feedback==='liked'} onClick={()=>feedback('liked')}>👍 Bra tips</button><button aria-expanded={reasonOpen} aria-pressed={past?.feedback==='disliked'} onClick={()=>setReasonOpen(open=>!open)}>👎 Inte för mig</button></div>
+   {reasonOpen&&<div className="feedback-reasons"><p>Vad passade inte?</p><button onClick={()=>feedback('disliked','too_dark')}>För mörkt</button><button onClick={()=>feedback('disliked','too_slow')}>För långsamt</button><button onClick={()=>feedback('disliked','wrong_genre')}>Fel genre</button></div>}
+   <button className="start-over" onClick={markWatched}>Redan sett den</button>
+   {undoWatched&&<button className="undo-watch" onClick={undoWatch}>Ångra ”Redan sett”</button>}
    <button className="start-over" onClick={()=>{setMood(undefined);setStep('mood')}}>← Beskriv en ny kväll</button><Credits/></section>{toast&&<div className="toast" role="status">✓ {toast}</div>}</main>
  }
  const navStep=step==='providers'?1:step==='genres'?2:step==='mood'?3:4
